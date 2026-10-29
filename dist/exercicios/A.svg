@@ -1,0 +1,15 @@
+<svg width="1200" height="675" viewBox="0 0 1200 675" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1200" y2="675">
+      <stop offset="0" stop-color="#1f2326"/>
+      <stop offset="1" stop-color="#15181a"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="675" fill="url(#g)"/>
+  <g stroke="#d6402f" stroke-width="10" fill="none" stroke-linecap="round" stroke-linejoin="round" opacity="0.9">
+    <circle cx="600" cy="338" r="210"/>
+    <path d="M390 338h420M600 128v420"/>
+    <path d="M458 220c52 36 92 74 142 118M742 456c-52-36-92-74-142-118M458 456c52-36 92-74 142-118M742 220c-52 36-92 74-142 118"/>
+  </g>
+  <text x="50%" y="92%" text-anchor="middle" font-family="Barlow Condensed, Arial, sans-serif" font-size="56" fill="#eef0ec" opacity="0.8">PERNAS · A</text>
+</svg>

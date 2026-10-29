@@ -1,0 +1,14 @@
+<svg width="1200" height="675" viewBox="0 0 1200 675" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1200" y2="675">
+      <stop offset="0" stop-color="#1f2326"/>
+      <stop offset="1" stop-color="#15181a"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="675" fill="url(#g)"/>
+  <g stroke="#7a4fd6" stroke-width="10" fill="none" stroke-linecap="round" stroke-linejoin="round" opacity="0.9">
+    <circle cx="540" cy="300" r="90"/>
+    <path d="M470 380c40 40 100 40 140 0M470 450c40 40 100 40 140 0"/>
+  </g>
+  <text x="50%" y="92%" text-anchor="middle" font-family="Barlow Condensed, Arial, sans-serif" font-size="56" fill="#eef0ec" opacity="0.8">OMBROS · E</text>
+</svg>
