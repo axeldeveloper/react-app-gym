@@ -1,0 +1,131 @@
+name: Deploy Vercel
+
+# Fluxo (Git Flow):
+#   pull request para main/develop -> checagem de tipos + build, e deploy de prévia comentado no PR
+#   push em develop                -> deploy de prévia (homologação)
+#   push em main                   -> deploy de produção
+#
+# Secrets necessários (Settings > Secrets and variables > Actions):
+#   VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '22'
+  VERCEL_CLI_VERSION: '65.8.0'
+
+jobs:
+  ci:
+    name: Build e tipos
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Checar tipos e gerar build
+        run: npm run build
+
+  deploy:
+    name: Deploy
+    needs: ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # PRs vindos de fork não recebem secrets: o CI roda, o deploy não.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      contents: read
+      pull-requests: write
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Conferir secrets do Vercel
+        run: |
+          missing=0
+          for v in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID; do
+            if [ -z "${!v}" ]; then
+              echo "::error::Secret $v não configurado (Settings > Secrets and variables > Actions)."
+              missing=1
+            fi
+          done
+          exit $missing
+
+      - name: Definir ambiente (produção só em main)
+        id: alvo
+        env:
+          REF: ${{ github.ref }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT" = "push" ] && [ "$REF" = "refs/heads/main" ]; then
+            echo "target=production" >> "$GITHUB_OUTPUT"
+            echo "flag=--prod" >> "$GITHUB_OUTPUT"
+          else
+            echo "target=preview" >> "$GITHUB_OUTPUT"
+            echo "flag=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Instalar Vercel CLI
+        run: npm install --global vercel@${{ env.VERCEL_CLI_VERSION }}
+
+      - name: Baixar configuração do projeto
+        run: vercel pull --yes --environment=${{ steps.alvo.outputs.target }} --token="$VERCEL_TOKEN"
+
+      - name: Build
+        run: vercel build ${{ steps.alvo.outputs.flag }} --token="$VERCEL_TOKEN"
+
+      - name: Deploy
+        id: deploy
+        run: |
+          url=$(vercel deploy --prebuilt ${{ steps.alvo.outputs.flag }} --token="$VERCEL_TOKEN")
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Deploy (${{ steps.alvo.outputs.target }})"
+            echo "$url"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Comentar URL no PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        env:
+          DEPLOY_URL: ${{ steps.deploy.outputs.url }}
+        with:
+          script: |
+            const marker = '<!-- deploy-vercel -->'
+            const body = `${marker}\n**Prévia no Vercel:** ${process.env.DEPLOY_URL}\n\nCommit: \`${context.sha.slice(0, 7)}\``
+            const { owner, repo } = context.repo
+            const issue_number = context.issue.number
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number })
+            const anterior = comments.find((c) => c.body?.includes(marker))
+            if (anterior) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: anterior.id, body })
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body })
+            }
