@@ -18,7 +18,7 @@ export type Action =
   | { type: 'mainReset' }
   | { type: 'resetWeek' }
 
-const KEY = 'treino-pwa:v1'
+const KEY = 'treino-pwa:catalogue:v1'
 const EMPTY: Clock = { acc: 0, since: null }
 
 export const elapsed = (c: Clock | undefined, now: number) =>

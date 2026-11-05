@@ -4,13 +4,17 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "predev": "npm run catalogue:merge",
     "dev": "vite --host",
+    "prebuild": "npm run catalogue:merge",
     "build": "tsc -b && vite build",
-    "preview": "vite preview --host"
+    "preview": "vite preview --host",
+    "catalogue:merge": "node scripts/catalogue/merge-exercises.mjs"
   },
   "dependencies": {
     "@fontsource/barlow": "^5.3.0",
     "@fontsource/barlow-condensed": "^5.3.0",
+    "dexie": "^4.4.7",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   },

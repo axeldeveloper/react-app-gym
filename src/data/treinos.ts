@@ -1,169 +1,174 @@
-// O "+" identifica itens que estavam marcados na lista original; ele não define
-// o estado inicial do app, que começa com todos os exercícios desmarcados.
+export type ExerciseRecord = {
+  id: string
+  name?: string
+  namePtBr?: string
+  bodyPart?: string
+  equipment?: string
+  target?: string
+  secondaryMuscles?: string[]
+  category?: string
+  description?: string
+  descriptionPtBr?: string
+  instructions?: string[]
+  instructionsPtBr?: string[]
+  custom?: 1
+  customMedia?: Blob
+  customMediaType?: string
+}
 
-export type Exercicio = { id: string; nome: string; inicial: boolean; essencial: boolean; imagem?: string }
-export type Grupo = { letra: string; titulo: string; exercicios: Exercicio[] }
+export type Exercicio = {
+  id: string
+  nome: string
+  nomeOriginal: string
+  nomeTraduzido: boolean
+  parteCorporal: string
+  equipamento: string
+  alvo: string
+  alvoOriginal: string
+  musculosSecundarios: string[]
+  musculosSecundariosOriginais: string[]
+  categoria: string
+  descricao: string
+  descricaoTraduzida: boolean
+  instrucoes: string[]
+  instrucoesTraduzidas: boolean
+  inicial: boolean
+  custom: boolean
+  midia?: Blob
+  tipoMidia?: string
+}
 
-// Exercícios recomendados (critério: movimentos completos, boa relação estímulo/desgaste,
-// segurança para ombro, lombar e joelho, e cobertura de todas as porções do músculo).
-// O motivo de cada um está em MOTIVOS (src/data/detalhes.ts).
-const ESSENCIAIS = new Set([
-  // A · Pernas
-  'A01', 'A02', 'A03', 'A04', 'A08', 'A12', 'A15', 'A16', 'A17',
-  // B · Costas
-  'B01', 'B03', 'B08', 'B09', 'B11',
-  // C · Ombros (posterior e tríceps)
-  'C07', 'C08', 'C11', 'C12',
-  // D · Peito
-  'D01', 'D02', 'D04', 'D08', 'D12',
-  // E · Ombros
-  'E01', 'E05', 'E09',
-  // F · Trapézio
-  'F01', 'F05', 'F08', 'F09',
-  // G · Braço
-  'G05', 'G06', 'G10', 'G11',
-  // H · Costas
-  'H06', 'H09',
-])
+export type Grupo = {
+  chave: string
+  sigla: string
+  titulo: string
+  parteCorporal: string
+  total: number
+  ids: string[]
+}
 
-function grupo(letra: string, titulo: string, itens: string[]): Grupo {
+export const PARTES_CORPORAIS: Record<string, { titulo: string; sigla: string }> = {
+  back: { titulo: 'Costas', sigla: 'CT' },
+  cardio: { titulo: 'Cardio', sigla: 'CA' },
+  chest: { titulo: 'Peito', sigla: 'PT' },
+  'full body': { titulo: 'Corpo inteiro', sigla: 'CI' },
+  'lower arms': { titulo: 'Antebraços', sigla: 'AB' },
+  'lower legs': { titulo: 'Panturrilhas', sigla: 'PA' },
+  neck: { titulo: 'Pescoço', sigla: 'PC' },
+  shoulders: { titulo: 'Ombros', sigla: 'OM' },
+  'upper arms': { titulo: 'Braços', sigla: 'BR' },
+  'upper legs': { titulo: 'Pernas', sigla: 'PR' },
+  waist: { titulo: 'Abdômen', sigla: 'AD' },
+}
+
+const TERMOS_PT_BR: Record<string, string> = {
+  abductors: 'abdutores',
+  abs: 'abdômen',
+  adductors: 'adutores',
+  assisted: 'assistência',
+  band: 'faixa elástica',
+  barbell: 'barra',
+  'body weight': 'peso corporal',
+  'bosu ball': 'bola bosu',
+  biceps: 'bíceps',
+  calves: 'panturrilhas',
+  cable: 'polia',
+  'cardiovascular system': 'sistema cardiovascular',
+  delts: 'deltoides',
+  dumbbell: 'halter',
+  'elliptical machine': 'elíptico',
+  'ez barbell': 'barra EZ',
+  forearms: 'antebraços',
+  glutes: 'glúteos',
+  hammer: 'martelo',
+  hamstrings: 'isquiotibiais',
+  'hip flexors': 'flexores do quadril',
+  kettlebell: 'kettlebell',
+  landmine: 'landmine',
+  lats: 'dorsais',
+  'leverage machine': 'máquina de alavancas',
+  'levator scapulae': 'levantador da escápula',
+  macebell: 'macebell',
+  'massage ball': 'bola de massagem',
+  'medicine ball': 'bola medicinal',
+  'olympic barbell': 'barra olímpica',
+  obliques: 'oblíquos',
+  pectorals: 'peitorais',
+  quads: 'quadríceps',
+  resistance: 'resistência',
+  'resistance band': 'faixa de resistência',
+  roller: 'rolo',
+  rope: 'corda',
+  sandbag: 'saco de areia',
+  'serratus anterior': 'serrátil anterior',
+  shins: 'canelas',
+  'skierg machine': 'SkiErg',
+  'sled machine': 'trenó',
+  'smith machine': 'máquina Smith',
+  spine: 'coluna',
+  'stability ball': 'bola de estabilidade',
+  'stationary bike': 'bicicleta ergométrica',
+  'stepmill machine': 'simulador de escada',
+  'suspension trainer': 'treinador de suspensão',
+  traps: 'trapézio',
+  tire: 'pneu',
+  'trap bar': 'barra hexagonal',
+  triceps: 'tríceps',
+  'upper back': 'parte superior das costas',
+  'upper body ergometer': 'ergômetro de membros superiores',
+  weighted: 'com carga',
+  'weight plate': 'anilha',
+  'wheel roller': 'roda abdominal',
+}
+
+function capitalizar(texto: string) {
+  const primeiraLetra = texto.charAt(0)
+  return primeiraLetra ? primeiraLetra.toLocaleUpperCase('pt-BR') + texto.slice(1) : texto
+}
+
+export function criarExercicio(registro: ExerciseRecord): Exercicio {
+  const nome = registro.namePtBr ?? registro.name ?? 'Exercício sem nome'
+
   return {
-    letra,
-    titulo,
-    exercicios: itens.map((raw, i) => {
-      const nome = raw.startsWith('+') ? raw.slice(1) : raw
-      const id = `${letra}${String(i + 1).padStart(2, '0')}`
-      return {
-        id,
-        nome,
-        inicial: false,
-        essencial: ESSENCIAIS.has(id),
-      }
-    }),
+    id: registro.id,
+    nome: capitalizar(nome),
+    nomeOriginal: registro.name ?? nome,
+    nomeTraduzido: Boolean(registro.namePtBr),
+    parteCorporal: registro.bodyPart ?? '',
+    equipamento: registro.equipment
+      ? TERMOS_PT_BR[registro.equipment] ?? registro.equipment
+      : 'Não informado',
+    alvo: registro.target ? TERMOS_PT_BR[registro.target] ?? registro.target : 'Não informado',
+    alvoOriginal: registro.target ?? '',
+    musculosSecundarios:
+      registro.secondaryMuscles?.map((musculo) => TERMOS_PT_BR[musculo] ?? musculo) ?? [],
+    musculosSecundariosOriginais: registro.secondaryMuscles ?? [],
+    categoria: registro.category ?? '',
+    descricao: registro.descriptionPtBr ?? registro.description ?? '',
+    descricaoTraduzida: Boolean(registro.descriptionPtBr),
+    instrucoes: registro.instructionsPtBr?.length
+      ? registro.instructionsPtBr
+      : registro.instructions ?? [],
+    instrucoesTraduzidas: Boolean(registro.instructionsPtBr?.length),
+    inicial: false,
+    custom: registro.custom === 1,
+    midia: registro.customMedia,
+    tipoMidia: registro.customMediaType,
   }
 }
 
-export const GRUPOS: Grupo[] = [
-  grupo('A', 'Pernas', [
-    '+Agachamento Barra Smith',
-    'Agachamento hatch Quat',
-    'Leg 45 200k',
-    'Cadeira Extensora (comun)',
-    'Cadeira Flexora',
-    'Cadeira Adutora',
-    'Cadeira Abdutora',
-    '+Mesa Flexora (Deita)',
-    'Agacha Empurra',
-    'Levantamento Sumô',
-    'Passada com Pesos',
-    'Panturrilha Individual loop Cavalinho',
-    'Agachamento Máquina',
-    'Agachamento Frontal Halteres',
-    'Panturrilha Individual Mesa',
-    'Stiff',
-    'Bulgaro',
-  ]),
-  grupo('B', 'Costas', [
-    'Puxador Aberto',
-    'Puxador Aberto Atraz da nuca',
-    'Puxador Triângulo Baixa',
-    'Puxador Triângulo Alta',
-    'Remada Pronada Baixa (puxador baixo)',
-    'Remada Pronada Alta (trapézio)',
-    'Remada Baixa unilateral',
-    'Remada Pronada Máquina (base peito)',
-    'Remada Neutra Articulada (base peito)',
-    'Landmine Row',
-    'Levantamento Terra',
-  ]),
-  grupo('C', 'Ombros', [
-    'Elevação Lateral em Pé',
-    'Elevação Frontal com Barra',
-    'Elevação Frontal em Pé',
-    'Elevação Posterior Corda Cross puxar ate o pescoço',
-    'Bíceps Unilateral Polia Alta',
-    'Bíceps Máquina unilateral',
-    'Tríceps Francês Cross',
-    'Tríceps Corda (Corda v)',
-    'Tríceps Barra Reta Baixa',
-    'Tríceps Corda Coice Polia',
-    'Face Pull Corda Cross (Testa)',
-    'Voador Inverso Manter Escapula Neutralizada',
-    'Crucifixo Corda Cross',
-  ]),
-  grupo('D', 'Peito', [
-    'Supino Reto Barra',
-    'Supino Reto Halteres',
-    'Supino Reto Halteres Peito',
-    'Supino inclinado Banco Halteres',
-    'Supino inclinado Banco Barra',
-    'Supino Inclinado Baixa Mesa Halt',
-    'Supino Inclinado Baixa Mesa Barra',
-    'Supino Inclinado Máquina Articulado',
-    'Supino Inclinado Máquina',
-    'Crucifixo corda Crossover Alta',
-    'Crucifixo corda Crossover Baixa',
-    'Crucifixo corda Crossover Peitoral',
-    'Voador (crucifixo Maquina)',
-    'Dumbel Press Reto',
-    'Dumbel Press Inclinado',
-  ]),
-  grupo('E', 'Ombros', [
-    '+Elevação Lateral Cross Polia Média (metade do ombro)',
-    'Elevação Lateral Cross Polia Baixa (torto)',
-    '+Elevação Frontal Sent Halter',
-    '+Elevação Frontal Cruzada',
-    '+Elevação Lateral Sentado',
-    '+Elevação Posterior Corda puxar ate pescoço',
-    '+Elevação Frontal Cross (corda embaixo do joelho)',
-    'Elevação Posterior Corda Cross face)',
-    '+Desenvolvimento Halter',
-    '+Desenvolvimento Arnold',
-    '+Posterior no cabo unilateral',
-    'Tríceps Francês com Halt. Ou atrás',
-  ]),
-  grupo('F', 'Trapézio', [
-    '+Remada alta polia Trapezio',
-    '+Trapezio costas corda',
-    'Trapezio barra aberta smith',
-    'Remada alta com barra W (trapézio encolhido )',
-    'Encolhximento Halter 3x12',
-    'Pullover com Halter',
-    'Rosca martelo sentado',
-    'Barra fixa',
-    'Remada Unilateral serrote',
-    'Rosca scott unilateral 3x12',
-    'Levantamento terra 3x12',
-  ]),
-  grupo('G', 'Braço', [
-    '+Rosca Halt. simultâneo',
-    '+Rosca Halt. Sentado individual',
-    'Rosca em pé polia',
-    '+Rosca Halt. Individual em pé',
-    '+Rosca Martelo Halt. em pé',
-    '+Rosca inclinado halt.',
-    '+Rosca Invertida (puxar )',
-    '+Rosca Neutra 45 banco',
-    '+Rosca Martelo 45 banco',
-    'Rosca spider',
-    'Rosca barra w',
-    'Rosca barra reta',
-    'Rosca Invertida barra W',
-    'Rosca banco 45 Cross (polia ou banco)',
-  ]),
-  grupo('H', 'Costas', [
-    '+Remada curvada c/b supinad',
-    'Remada curvada c/b tronada',
-    'Remada curvada s/b halteres',
-    'Remada curvada c/b pegada invertida',
-    'Remada curvada no smith',
-    'Remada unilateral com halter (banco serrote)',
-    'Voador Crucifixo inverso',
-    '+Crucifixo inverso com halteres (sentado nuca)',
-    'Pull Dow Cross Corda (G)',
-    '+Pull Dow Cross Barra Lg',
-    'Pull Dow máquina/ Cuross',
-    'ISO lateral low row',
-    'ISO lateral high row',
-  ]),
-]
+export function criarGrupo(parteCorporal: string, ids: string[]): Grupo {
+  const parte = PARTES_CORPORAIS[parteCorporal]
+  const titulo =
+    parte?.titulo ??
+    parteCorporal.replace(/\b\w/g, (letra) => letra.toLocaleUpperCase('pt-BR'))
+
+  return {
+    chave: parteCorporal.replaceAll(' ', '-'),
+    sigla: parte?.sigla ?? parteCorporal.slice(0, 2).toLocaleUpperCase('pt-BR'),
+    titulo,
+    parteCorporal,
+    total: ids.length,
+    ids,
+  }
+}
