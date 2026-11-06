@@ -6,7 +6,7 @@
   "scripts": {
     "predev": "npm run catalogue:merge",
     "dev": "vite --host",
-    "prebuild": "npm run catalogue:merge",
+    "prebuild55": "npm run catalogue:merge",
     "build": "tsc -b && vite build",
     "preview": "vite preview --host",
     "catalogue:merge": "node scripts/catalogue/merge-exercises.mjs"
