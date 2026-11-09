@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import BodyMuscleMap from './components/BodyMuscleMap'
 import { readAllExercises } from './data/catalogueDb'
 import type { Exercicio } from './data/treinos'
-import { initializePlanRoutines, type PlanRoutine } from './data/planDb'
+import { formatReps, initializePlanRoutines, type PlanRoutine } from './data/planDb'
 import {
   readHomeDays,
   readHomeProfile,
@@ -417,7 +417,7 @@ export default function Home({ onOpenPlans }: Props) {
                           <li className={done ? 'concluido' : ''} key={key}>
                             <span className="home-exercise-copy">
                               <strong>{exercise.nome}</strong>
-                              <small>{item.sets} séries × {item.reps} reps</small>
+                              <small>{item.sets} séries × {formatReps(item)} reps</small>
                             </span>
                             <button
                               className={`home-exercise-check${done ? ' feito' : ''}`}

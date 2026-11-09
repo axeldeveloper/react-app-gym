@@ -36,6 +36,25 @@ export default function Detalhes({ grupo, exercicio, onClose }: Props) {
           </button>
         </header>
 
+        {exercicio.video ? (
+          <figure className="exercise-detail-image">
+            <video
+              controls
+              playsInline
+              preload="metadata"
+              poster={exercicio.imagem}
+              aria-label={`Demonstração de ${exercicio.nome}`}
+            >
+              <source src={exercicio.video} type="video/mp4" />
+              Seu navegador não suporta a reprodução deste vídeo.
+            </video>
+          </figure>
+        ) : exercicio.imagem ? (
+          <figure className="exercise-detail-image">
+            <img src={exercicio.imagem} alt={`Demonstração de ${exercicio.nome}`} />
+          </figure>
+        ) : null}
+
         {exercicio.descricao && (
           <section>
             <h3>{exercicio.descricaoTraduzida ? 'Descrição' : 'Descrição original (inglês)'}</h3>

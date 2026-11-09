@@ -1,5 +1,11 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { readAllExercises, saveCustomExercise } from './data/catalogueDb'
+import {
+  addExerciseToPlanRoutine,
+  createPlanRoutine,
+  initializePlanRoutines,
+  type PlanRoutine,
+} from './data/planDb'
 import { PARTES_CORPORAIS, type Exercicio } from './data/treinos'
 
 type Props = {
@@ -47,7 +53,6 @@ export default function Exercicios({ onDetails }: Props) {
   const [porMusculo, setPorMusculo] = useState(false)
   const [modoLista, setModoLista] = useState(false)
   const [limite, setLimite] = useState(50)
-  const [selecionados, setSelecionados] = useState<Set<string>>(() => new Set())
   const [criacaoAberta, setCriacaoAberta] = useState(false)
   const [nomeNovo, setNomeNovo] = useState('')
   const [parteNova, setParteNova] = useState('chest')
@@ -55,6 +60,12 @@ export default function Exercicios({ onDetails }: Props) {
   const [midiaNova, setMidiaNova] = useState<File | null>(null)
   const [salvando, setSalvando] = useState(false)
   const [erroCriacao, setErroCriacao] = useState<string | null>(null)
+  const [exercicioParaPlano, setExercicioParaPlano] = useState<Exercicio | null>(null)
+  const [rotinasPlano, setRotinasPlano] = useState<PlanRoutine[]>([])
+  const [carregandoRotinas, setCarregandoRotinas] = useState(false)
+  const [erroPlano, setErroPlano] = useState<string | null>(null)
+  const [sucessoPlano, setSucessoPlano] = useState<string | null>(null)
+  const [alterandoPlano, setAlterandoPlano] = useState(false)
 
   useEffect(() => {
     let ativo = true
@@ -131,6 +142,64 @@ export default function Exercicios({ onDetails }: Props) {
     [urlsMidia],
   )
 
+  const abrirSeletorPlano = async (exercicio: Exercicio) => {
+    setExercicioParaPlano(exercicio)
+    setRotinasPlano([])
+    setCarregandoRotinas(true)
+    setErroPlano(null)
+    setSucessoPlano(null)
+    try {
+      setRotinasPlano(await initializePlanRoutines())
+    } catch (error) {
+      setErroPlano(error instanceof Error ? error.message : 'Não foi possível carregar as rotinas.')
+    } finally {
+      setCarregandoRotinas(false)
+    }
+  }
+
+  const adicionarExercicioARotina = async (rotina: PlanRoutine) => {
+    if (!exercicioParaPlano || alterandoPlano) return
+    setAlterandoPlano(true)
+    setErroPlano(null)
+    setSucessoPlano(null)
+    try {
+      const atualizada = await addExerciseToPlanRoutine(rotina.id, exercicioParaPlano.id)
+      setRotinasPlano((atuais) =>
+        atuais.map((item) => (item.id === atualizada.id ? atualizada : item)),
+      )
+      setSucessoPlano(`${exercicioParaPlano.nome} foi adicionado à rotina ${rotina.name}.`)
+    } catch (error) {
+      setErroPlano(error instanceof Error ? error.message : 'Não foi possível adicionar o exercício à rotina.')
+    } finally {
+      setAlterandoPlano(false)
+    }
+  }
+
+  const criarRotinaComExercicio = async () => {
+    if (!exercicioParaPlano || alterandoPlano) return
+    setAlterandoPlano(true)
+    setErroPlano(null)
+    setSucessoPlano(null)
+    try {
+      const rotina = await createPlanRoutine(exercicioParaPlano.id)
+      setRotinasPlano((atuais) => [...atuais, rotina].sort((a, b) => a.position - b.position))
+      setSucessoPlano(`${exercicioParaPlano.nome} foi adicionado à nova rotina.`)
+    } catch (error) {
+      setErroPlano(error instanceof Error ? error.message : 'Não foi possível criar a rotina.')
+    } finally {
+      setAlterandoPlano(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!exercicioParaPlano) return
+    const fecharComEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !alterandoPlano) setExercicioParaPlano(null)
+    }
+    document.addEventListener('keydown', fecharComEscape)
+    return () => document.removeEventListener('keydown', fecharComEscape)
+  }, [alterandoPlano, exercicioParaPlano])
+
   const enviarNovoExercicio = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setSalvando(true)
@@ -170,7 +239,6 @@ export default function Exercicios({ onDetails }: Props) {
           <h1>Exercícios</h1>
           <p>
             {carregando ? 'Carregando catálogo...' : `${exercicios.length.toLocaleString('pt-BR')} exercícios no catálogo`}
-            {selecionados.size > 0 && ` · ${selecionados.size} selecionados`}
           </p>
         </div>
         <button
@@ -340,7 +408,7 @@ export default function Exercicios({ onDetails }: Props) {
                 exercicio.alvo !== 'Não informado'
                   ? capitalizar(exercicio.alvo)
                   : PARTES_CORPORAIS[exercicio.parteCorporal]?.titulo ?? 'Músculo não informado'
-              const adicionado = selecionados.has(exercicio.id)
+              const imagem = urlsMidia.get(exercicio.id) ?? exercicio.imagem
               return (
                 <article className="exercise-card" key={exercicio.id}>
                   <button
@@ -349,12 +417,8 @@ export default function Exercicios({ onDetails }: Props) {
                     onClick={() => onDetails(exercicio)}
                   >
                     <span className="exercise-thumbnail" aria-hidden="true">
-                      {urlsMidia.has(exercicio.id) ? (
-                        exercicio.tipoMidia?.startsWith('video/') ? (
-                          <span className="exercise-video-placeholder"><DumbbellIcon /></span>
-                        ) : (
-                          <img src={urlsMidia.get(exercicio.id)} alt="" />
-                        )
+                      {imagem ? (
+                        <img src={imagem} alt="" loading="lazy" decoding="async" />
                       ) : (
                         <DumbbellIcon />
                       )}
@@ -365,19 +429,11 @@ export default function Exercicios({ onDetails }: Props) {
                     </span>
                   </button>
                   <button
-                    className={adicionado ? 'exercise-add adicionado' : 'exercise-add'}
-                    aria-label={`${adicionado ? 'Remover' : 'Adicionar'} ${exercicio.nome} ${adicionado ? 'do' : 'ao'} treino`}
-                    aria-pressed={adicionado}
-                    onClick={() =>
-                      setSelecionados((atuais) => {
-                        const proximos = new Set(atuais)
-                        if (proximos.has(exercicio.id)) proximos.delete(exercicio.id)
-                        else proximos.add(exercicio.id)
-                        return proximos
-                      })
-                    }
+                    className="exercise-add"
+                    aria-label={`Adicionar ${exercicio.nome} a um plano ou rotina`}
+                    onClick={() => void abrirSeletorPlano(exercicio)}
                   >
-                    <PlusIcon added={adicionado} />
+                    <PlusIcon />
                   </button>
                 </article>
               )
@@ -393,6 +449,84 @@ export default function Exercicios({ onDetails }: Props) {
           )}
           {filtrados.length === 0 && <p className="exercise-state">Nenhum exercício encontrado para estes filtros.</p>}
         </>
+      )}
+      {exercicioParaPlano && (
+        <div
+          className="plan-picker-backdrop"
+          onClick={(event) =>
+            event.target === event.currentTarget &&
+            !alterandoPlano &&
+            setExercicioParaPlano(null)
+          }
+        >
+          <section
+            className="plan-picker exercise-plan-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="exercise-plan-title"
+          >
+            <div className="plan-picker-grip" aria-hidden="true" />
+            <header className="plan-picker-header">
+              <h2 id="exercise-plan-title">Adicionar ao plano</h2>
+              <button
+                className="plan-round-button"
+                aria-label="Fechar seleção de rotina"
+                disabled={alterandoPlano}
+                onClick={() => setExercicioParaPlano(null)}
+              >
+                ×
+              </button>
+            </header>
+            <p className="exercise-plan-description">
+              Escolha uma rotina para incluir <strong>{exercicioParaPlano.nome}</strong>.
+            </p>
+            {erroPlano && <p className="plan-error" role="alert">{erroPlano}</p>}
+            {sucessoPlano && <p className="exercise-plan-success" role="status">{sucessoPlano}</p>}
+            {carregandoRotinas ? (
+              <p className="plan-empty" role="status">Carregando suas rotinas...</p>
+            ) : erroPlano ? (
+              <button
+                className="plan-primary-button"
+                onClick={() => void abrirSeletorPlano(exercicioParaPlano)}
+              >
+                Tentar novamente
+              </button>
+            ) : (
+              <>
+                <div className="plan-picker-list">
+                  {rotinasPlano.map((rotina) => {
+                    const jaAdicionado = rotina.exercises.some(
+                      (item) => item.exerciseId === exercicioParaPlano.id,
+                    )
+                    return (
+                      <button
+                        key={rotina.id}
+                        className={jaAdicionado ? 'plan-picker-exercise selecionado' : 'plan-picker-exercise'}
+                        disabled={jaAdicionado || alterandoPlano}
+                        onClick={() => void adicionarExercicioARotina(rotina)}
+                      >
+                        <span className="plan-exercise-copy">
+                          <strong>{rotina.name}</strong>
+                          <small>{rotina.exercises.length} exercícios</small>
+                        </span>
+                        <span className="plan-picker-plus" aria-hidden="true">
+                          {jaAdicionado ? '✓' : alterandoPlano ? '…' : '+'}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+                <button
+                  className="create-submit exercise-plan-create"
+                  disabled={alterandoPlano}
+                  onClick={() => void criarRotinaComExercicio()}
+                >
+                  ＋ Criar nova rotina com este exercício
+                </button>
+              </>
+            )}
+          </section>
+        </div>
       )}
     </main>
   )

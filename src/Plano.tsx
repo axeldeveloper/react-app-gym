@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   addExerciseToPlanRoutine,
+  createPlanRoutine,
   deletePlanRoutine,
+  formatReps,
   initializePlanRoutines,
   savePlanRoutine,
   savePlanRoutines,
@@ -84,6 +86,8 @@ export default function Plano({ className = '' }: Props) {
   const [parteSelecionada, setParteSelecionada] = useState('')
   const [limite, setLimite] = useState(60)
   const [nomeRascunho, setNomeRascunho] = useState('')
+  const listaSeletorRef = useRef<HTMLDivElement>(null)
+  const fimListaSeletorRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     let ativo = true
@@ -190,11 +194,30 @@ export default function Plano({ className = '' }: Props) {
     [exerciciosFiltrados, rotinaAtiva],
   )
 
+  useEffect(() => {
+    const root = listaSeletorRef.current
+    const sentinel = fimListaSeletorRef.current
+    if (!seletorAberto || !root || !sentinel || limite >= exerciciosAdicionaveis.length) return
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setLimite((atual) =>
+            Math.min(atual + 60, exerciciosAdicionaveis.length),
+          )
+        }
+      },
+      { root, rootMargin: '0px 0px 160px 0px' },
+    )
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [exerciciosAdicionaveis.length, limite, seletorAberto])
+
   const compartilhar = async () => {
     const texto = rotinas
       .map((rotina) => `${rotina.name}\n${rotina.exercises.map((item) => {
         const exercicio = exerciciosPorId.get(item.exerciseId)
-        return exercicio ? `- ${exercicio.nome}: ${item.sets} × ${item.reps}` : ''
+        return exercicio ? `- ${exercicio.nome}: ${item.sets} × ${formatReps(item)}` : ''
       }).filter(Boolean).join('\n')}`)
       .join('\n\n')
     try {
@@ -228,16 +251,14 @@ export default function Plano({ className = '' }: Props) {
   }
 
   const criarRotina = async () => {
-    const rotina: PlanRoutine = {
-      id: `routine-${crypto.randomUUID()}`,
-      name: 'Nova rotina',
-      focus: 'Treino',
-      position: rotinas.length,
-      progression: 'linear',
-      deload: false,
-      exercises: [],
+    try {
+      const rotina = await createPlanRoutine()
+      setRotinas((atuais) => [...atuais, rotina].sort((a, b) => a.position - b.position))
+      setRotinaAtivaId(rotina.id)
+      setErro(null)
+    } catch (error) {
+      setErro(error instanceof Error ? error.message : 'Não foi possível criar a rotina.')
     }
-    if (await salvar(rotina)) setRotinaAtivaId(rotina.id)
   }
 
   const removerRotina = async () => {
@@ -422,8 +443,13 @@ export default function Plano({ className = '' }: Props) {
                 <li className="plan-exercise-card" key={`${rotinaAtiva.id}-${item.exerciseId}-${indice}`}>
                   <span className="plan-drag-handle" aria-hidden="true">⠿</span>
                   <span className="plan-thumbnail">
-                    {urlsMidia.has(exercicio.id) ? (
-                      <img src={urlsMidia.get(exercicio.id)} alt="" />
+                    {(urlsMidia.get(exercicio.id) ?? exercicio.imagem) ? (
+                      <img
+                        src={urlsMidia.get(exercicio.id) ?? exercicio.imagem}
+                        alt=""
+                        loading="lazy"
+                        decoding="async"
+                      />
                     ) : (
                       <IconePeso />
                     )}
@@ -447,7 +473,7 @@ export default function Plano({ className = '' }: Props) {
                       </label>
                       <span>×</span>
                       <label>
-                        <span className="sr">Repetições de {exercicio.nome}</span>
+                        <span className="sr">Mínimo de repetições de {exercicio.nome}</span>
                         <input
                           type="number"
                           min={1}
@@ -455,10 +481,40 @@ export default function Plano({ className = '' }: Props) {
                           value={item.reps}
                           onChange={(event) => {
                             const reps = Math.min(100, Math.max(1, Number.parseInt(event.target.value, 10) || 1))
-                            void atualizarExercicio(indice, (atual) => ({ ...atual, reps }))
+                            void atualizarExercicio(indice, (atual) => ({
+                              ...atual,
+                              reps,
+                              ...(atual.repsMax === undefined
+                                ? {}
+                                : { repsMax: Math.max(reps, atual.repsMax) }),
+                            }))
                           }}
                         />
                       </label>
+                      {item.repsMax !== undefined && (
+                        <>
+                          <span aria-hidden="true">–</span>
+                          <label>
+                            <span className="sr">Máximo de repetições de {exercicio.nome}</span>
+                            <input
+                              type="number"
+                              min={item.reps}
+                              max={100}
+                              value={item.repsMax}
+                              onChange={(event) => {
+                                const repsMax = Math.min(
+                                  100,
+                                  Math.max(
+                                    item.reps,
+                                    Number.parseInt(event.target.value, 10) || item.reps,
+                                  ),
+                                )
+                                void atualizarExercicio(indice, (atual) => ({ ...atual, repsMax }))
+                              }}
+                            />
+                          </label>
+                        </>
+                      )}
                       <span>reps</span>
                     </span>
                   </span>
@@ -541,6 +597,7 @@ export default function Plano({ className = '' }: Props) {
                   onChange={(event) => {
                     setBusca(event.target.value)
                     setLimite(60)
+                    if (listaSeletorRef.current) listaSeletorRef.current.scrollTop = 0
                   }}
                   autoFocus
                 />
@@ -549,7 +606,11 @@ export default function Plano({ className = '' }: Props) {
                 <button
                   className={!parteSelecionada ? 'selecionado' : ''}
                   aria-pressed={!parteSelecionada}
-                  onClick={() => setParteSelecionada('')}
+                  onClick={() => {
+                    setParteSelecionada('')
+                    setLimite(60)
+                    if (listaSeletorRef.current) listaSeletorRef.current.scrollTop = 0
+                  }}
                 >Todos</button>
                 {Object.entries(PARTES_CORPORAIS).map(([parte, info]) => (
                   <button
@@ -559,11 +620,12 @@ export default function Plano({ className = '' }: Props) {
                     onClick={() => {
                       setParteSelecionada(parteSelecionada === parte ? '' : parte)
                       setLimite(60)
+                      if (listaSeletorRef.current) listaSeletorRef.current.scrollTop = 0
                     }}
                   >{info.titulo}</button>
                 ))}
               </div>
-              <div className="plan-picker-list">
+              <div className="plan-picker-list" ref={listaSeletorRef}>
                 {exerciciosAdicionaveis
                   .slice(0, limite)
                   .map((exercicio) => {
@@ -577,8 +639,13 @@ export default function Plano({ className = '' }: Props) {
                         onClick={() => void adicionarExercicio(exercicio.id)}
                       >
                         <span className="plan-thumbnail">
-                          {urlsMidia.has(exercicio.id) ? (
-                            <img src={urlsMidia.get(exercicio.id)} alt="" />
+                          {(urlsMidia.get(exercicio.id) ?? exercicio.imagem) ? (
+                            <img
+                              src={urlsMidia.get(exercicio.id) ?? exercicio.imagem}
+                              alt=""
+                              loading="lazy"
+                              decoding="async"
+                            />
                           ) : (
                             <IconePeso />
                           )}
@@ -594,12 +661,10 @@ export default function Plano({ className = '' }: Props) {
                 {exerciciosAdicionaveis.length === 0 && (
                   <p className="plan-empty">Nenhum exercício encontrado para estes filtros.</p>
                 )}
+                {exerciciosAdicionaveis.length > limite && (
+                  <div className="plan-picker-sentinel" ref={fimListaSeletorRef} aria-hidden="true" />
+                )}
               </div>
-              {exerciciosAdicionaveis.length > limite && (
-                <button className="plan-more" onClick={() => setLimite((valor) => valor + 60)}>
-                  Mostrar mais exercícios
-                </button>
-              )}
             </section>
           </div>
         )}

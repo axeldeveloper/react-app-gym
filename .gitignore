@@ -2,3 +2,10 @@ node_modules
 .vercel
 .env*
 catalogue
+# Include exercise media in Vite's public build output.
+!public/catalogue/
+!public/catalogue/media/
+!public/catalogue/media/still/
+!public/catalogue/media/still/*.webp
+!public/catalogue/media/clip/
+!public/catalogue/media/clip/*.mp4

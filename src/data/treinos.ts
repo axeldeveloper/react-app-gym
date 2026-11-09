@@ -34,6 +34,8 @@ export type Exercicio = {
   instrucoesTraduzidas: boolean
   inicial: boolean
   custom: boolean
+  imagem?: string
+  video?: string
   midia?: Blob
   tipoMidia?: string
 }
@@ -152,6 +154,12 @@ export function criarExercicio(registro: ExerciseRecord): Exercicio {
     instrucoesTraduzidas: Boolean(registro.instructionsPtBr?.length),
     inicial: false,
     custom: registro.custom === 1,
+    imagem: registro.custom
+      ? undefined
+      : `/catalogue/media/still/${encodeURIComponent(registro.id)}.webp`,
+    video: registro.custom
+      ? undefined
+      : `/catalogue/media/clip/${encodeURIComponent(registro.id)}.mp4`,
     midia: registro.customMedia,
     tipoMidia: registro.customMediaType,
   }

@@ -4,12 +4,13 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "predev": "npm run catalogue:merge",
+    "predev": "npm run catalogue:merge && npm run catalogue:media",
     "dev": "vite --host",
-    "prebuild55": "npm run catalogue:merge",
+    "prebuild": "npm run catalogue:media",
     "build": "tsc -b && vite build",
     "preview": "vite preview --host",
-    "catalogue:merge": "node scripts/catalogue/merge-exercises.mjs"
+    "catalogue:merge": "node scripts/catalogue/merge-exercises.mjs",
+    "catalogue:media": "node scripts/catalogue/sync-media.mjs"
   },
   "dependencies": {
     "@fontsource/barlow": "^5.3.0",

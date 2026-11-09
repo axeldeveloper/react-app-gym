@@ -564,6 +564,7 @@ h1 { font-size: clamp(32px, 10vw, 44px); font-weight: 700; line-height: 1.05; }
 .plan-muscle-filters button { min-height: 29px; padding: 0 12px; border-radius: 99px; background: #222225; color: #dedee2; font-size: 12px; white-space: nowrap; }
 .plan-muscle-filters button.selecionado { background: #3885ff; color: white; }
 .plan-picker-list { display: grid; gap: 7px; overflow-y: auto; min-height: 0; overscroll-behavior: contain; }
+.plan-picker-sentinel { min-height: 1px; }
 .plan-picker-exercise {
   display: flex; align-items: center; gap: 10px; width: 100%; min-height: 66px; padding: 8px 11px;
   border: 1px solid transparent; border-radius: 13px; background: #1e1e20; text-align: left;
@@ -574,7 +575,11 @@ h1 { font-size: clamp(32px, 10vw, 44px); font-weight: 700; line-height: 1.05; }
 .plan-picker-exercise .plan-exercise-copy > small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .plan-picker-plus { flex: 0 0 22px; color: #dedee2; font-size: 21px; text-align: center; }
 .plan-picker-exercise.selecionado .plan-picker-plus { color: #438dff; }
-.plan-more { flex: 0 0 40px; margin-top: 9px; border-radius: 9px; background: #222225; color: #d7d7dc; font-size: 13px; }
+.exercise-plan-description { margin: -4px 2px 12px; color: #a5a5ac; font-size: 13px; line-height: 1.45; }
+.exercise-plan-description strong { color: #f4f4f5; font-weight: 500; }
+.exercise-plan-create { flex: 0 0 auto; margin-top: 12px; }
+.exercise-plan-create:disabled { opacity: .6; }
+.exercise-plan-success { margin: 10px 4px; color: #65d98b; font-size: 13px; }
 .plan-progression-backdrop { align-items: center; padding: 14px; }
 .plan-progression-dialog {
   width: min(640px, 100%); max-height: min(90dvh, 640px); overflow-y: auto;
@@ -828,6 +833,9 @@ body:has(dialog[open]) { overflow: hidden; }
 .modal h2 { margin: 0; font-size: clamp(22px, 7vw, 28px); font-weight: 700; line-height: 1.08; font-family: var(--font-num); overflow-wrap: anywhere; }
 .modal h3 { margin: 24px 0 8px; font-size: 16px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
 .modal section p { margin: 0; max-width: 64ch; font-size: clamp(16px, 2.6vw, 17px); line-height: 1.5; }
+.exercise-detail-image { display: grid; place-items: center; overflow: hidden; max-height: 360px; margin: 0; border-radius: 16px; background: #141416; }
+.exercise-detail-image img { display: block; width: 100%; max-height: 360px; object-fit: contain; }
+.exercise-detail-image video { display: block; width: 100%; max-height: 360px; object-fit: contain; }
 
 .passos { margin: 0; padding-left: 24px; display: grid; gap: 10px; max-width: 64ch; }
 .passos li { font-size: clamp(16px, 2.6vw, 17px); line-height: 1.5; }
