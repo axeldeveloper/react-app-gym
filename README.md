@@ -1,0 +1,1 @@
+https://www.strongermobileapp.com/blog/push-pull-legs-guide
