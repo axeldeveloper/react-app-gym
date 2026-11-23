@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import BodyMuscleMap from './components/BodyMuscleMap'
 import { readAllExercises } from './data/catalogueDb'
 import type { Exercicio } from './data/treinos'
@@ -17,6 +17,7 @@ import { muscleLoadsForRoutine } from './data/muscleMap'
 
 type Props = {
   onOpenPlans: () => void
+  onOpenDetails: (exercise: Exercicio) => void
 }
 
 const DAY_NAMES = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado']
@@ -45,6 +46,167 @@ function formatarData(date: string, options: Intl.DateTimeFormatOptions = {}) {
   return parseData(date).toLocaleDateString('pt-BR', options)
 }
 
+function calcularIdade(birthDate: string): number | null {
+  const [year, month, day] = birthDate.split('-').map(Number)
+  if (!year || !month || !day) return null
+  const nascimento = new Date(year, month - 1, day)
+  const hoje = new Date()
+  let anos = hoje.getFullYear() - nascimento.getFullYear()
+  const mesDiff = hoje.getMonth() - nascimento.getMonth()
+  if (mesDiff < 0 || (mesDiff === 0 && hoje.getDate() < nascimento.getDate())) anos -= 1
+  return anos
+}
+
+const PAISES = [
+  { chave: 'br', label: 'Brasil' },
+  { chave: 'us', label: 'Estados Unidos' },
+  { chave: 'py', label: 'Paraguai' },
+  { chave: 'ar', label: 'Argentina' },
+  { chave: 'cl', label: 'Chile' },
+  { chave: 'es', label: 'Espanha' },
+] as const
+
+type Traducao = {
+  perfil: string
+  nome: string
+  nascimento: string
+  idade: string
+  peso: string
+  altura: string
+  pais: string
+  foto: string
+  fotoAjuda: string
+  selecionarFoto: string
+  salvar: string
+  cancelar: string
+  fotoSelecionada: string
+  erroNome: string
+  erroPeso: string
+  erroAltura: string
+  erroData: string
+}
+
+const TRADUCOES: Record<string, Traducao> = {
+  br: {
+    perfil: 'Seu perfil',
+    nome: 'Nome',
+    nascimento: 'Data de nascimento',
+    idade: 'Idade',
+    peso: 'Peso (kg)',
+    altura: 'Altura (cm)',
+    pais: 'País de origem',
+    foto: 'Sua foto de perfil',
+    fotoAjuda: 'Escolha uma imagem para deixar seu perfil mais pessoal. Tamanho máximo: 5 MB.',
+    selecionarFoto: 'Escolher foto',
+    salvar: 'Salvar perfil',
+    cancelar: 'Cancelar',
+    fotoSelecionada: 'Nova foto selecionada; ela será salva ao confirmar.',
+    erroNome: 'Informe o nome do perfil.',
+    erroPeso: 'Informe um peso entre 20 e 500 kg.',
+    erroAltura: 'Informe uma altura entre 80 e 250 cm.',
+    erroData: 'A data de nascimento não pode ser futura.',
+  },
+  us: {
+    perfil: 'Your profile',
+    nome: 'Name',
+    nascimento: 'Date of birth',
+    idade: 'Age',
+    peso: 'Weight (kg)',
+    altura: 'Height (cm)',
+    pais: 'Country of origin',
+    foto: 'Your profile photo',
+    fotoAjuda: 'Choose an image to personalize your profile. Maximum size: 5 MB.',
+    selecionarFoto: 'Choose photo',
+    salvar: 'Save profile',
+    cancelar: 'Cancel',
+    fotoSelecionada: 'New photo selected; it will be saved when you confirm.',
+    erroNome: 'Please enter your profile name.',
+    erroPeso: 'Please enter a weight between 20 and 500 kg.',
+    erroAltura: 'Please enter a height between 80 and 250 cm.',
+    erroData: 'The birth date cannot be in the future.',
+  },
+  py: {
+    perfil: 'Su perfil',
+    nome: 'Nombre',
+    nascimento: 'Fecha de nacimiento',
+    idade: 'Edad',
+    peso: 'Peso (kg)',
+    altura: 'Altura (cm)',
+    pais: 'País de origen',
+    foto: 'Tu foto de perfil',
+    fotoAjuda: 'Elige una imagen para personalizar tu perfil. Tamaño máximo: 5 MB.',
+    selecionarFoto: 'Elegir foto',
+    salvar: 'Guardar perfil',
+    cancelar: 'Cancelar',
+    fotoSelecionada: 'Nueva foto seleccionada; se guardará al confirmar.',
+    erroNome: 'Ingrese el nombre del perfil.',
+    erroPeso: 'Ingrese un peso entre 20 y 500 kg.',
+    erroAltura: 'Ingrese una altura entre 80 y 250 cm.',
+    erroData: 'La fecha de nacimiento no puede ser futura.',
+  },
+  ar: {
+    perfil: 'Su perfil',
+    nome: 'Nombre',
+    nascimento: 'Fecha de nacimiento',
+    idade: 'Edad',
+    peso: 'Peso (kg)',
+    altura: 'Altura (cm)',
+    pais: 'País de origen',
+    foto: 'Tu foto de perfil',
+    fotoAjuda: 'Elige una imagen para personalizar tu perfil. Tamaño máximo: 5 MB.',
+    selecionarFoto: 'Elegir foto',
+    salvar: 'Guardar perfil',
+    cancelar: 'Cancelar',
+    fotoSelecionada: 'Nueva foto seleccionada; se guardará al confirmar.',
+    erroNome: 'Ingrese el nombre del perfil.',
+    erroPeso: 'Ingrese un peso entre 20 y 500 kg.',
+    erroAltura: 'Ingrese una altura entre 80 y 250 cm.',
+    erroData: 'La fecha de nacimiento no puede ser futura.',
+  },
+  cl: {
+    perfil: 'Su perfil',
+    nome: 'Nombre',
+    nascimento: 'Fecha de nacimiento',
+    idade: 'Edad',
+    peso: 'Peso (kg)',
+    altura: 'Altura (cm)',
+    pais: 'País de origen',
+    foto: 'Tu foto de perfil',
+    fotoAjuda: 'Elige una imagen para personalizar tu perfil. Tamaño máximo: 5 MB.',
+    selecionarFoto: 'Elegir foto',
+    salvar: 'Guardar perfil',
+    cancelar: 'Cancelar',
+    fotoSelecionada: 'Nueva foto seleccionada; se guardará al confirmar.',
+    erroNome: 'Ingrese el nombre del perfil.',
+    erroPeso: 'Ingrese un peso entre 20 y 500 kg.',
+    erroAltura: 'Ingrese una altura entre 80 y 250 cm.',
+    erroData: 'La fecha de nacimiento no puede ser futura.',
+  },
+  es: {
+    perfil: 'Su perfil',
+    nome: 'Nombre',
+    nascimento: 'Fecha de nacimiento',
+    idade: 'Edad',
+    peso: 'Peso (kg)',
+    altura: 'Altura (cm)',
+    pais: 'País de origen',
+    foto: 'Tu foto de perfil',
+    fotoAjuda: 'Elige una imagen para personalizar tu perfil. Tamaño máximo: 5 MB.',
+    selecionarFoto: 'Elegir foto',
+    salvar: 'Guardar perfil',
+    cancelar: 'Cancelar',
+    fotoSelecionada: 'Nueva foto seleccionada; se guardará al confirmar.',
+    erroNome: 'Ingrese el nombre del perfil.',
+    erroPeso: 'Ingrese un peso entre 20 y 500 kg.',
+    erroAltura: 'Ingrese una altura entre 80 y 250 cm.',
+    erroData: 'La fecha de nacimiento no puede ser futura.',
+  },
+}
+
+function traduzir(country: HomeProfileRecord['country'] | null, chave: keyof Traducao) {
+  return TRADUCOES[country ?? 'br'][chave]
+}
+
 function textoRelativoSemana(inicio: Date) {
   const hoje = inicioDaSemana(new Date())
   const diff = Math.round((inicio.getTime() - hoje.getTime()) / (7 * 86400000))
@@ -63,16 +225,6 @@ function IconeCalendario() {
   )
 }
 
-function IconePeso() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M5 8h14l2 12H3L5 8Z" />
-      <path d="M9 8a3 3 0 0 1 6 0" />
-      <path d="M12 12v3m-1.5-1.5h3" />
-    </svg>
-  )
-}
-
 function IconeCheck() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -81,26 +233,29 @@ function IconeCheck() {
   )
 }
 
-export default function Home({ onOpenPlans }: Props) {
+export default function Home({ onOpenPlans, onOpenDetails }: Props) {
   const today = dataISO(new Date())
   const [selectedDate, setSelectedDate] = useState(today)
   const [weekStart, setWeekStart] = useState(() => inicioDaSemana(new Date()))
   const [days, setDays] = useState<Record<string, HomeDayRecord>>({})
   const [routines, setRoutines] = useState<PlanRoutine[]>([])
   const [exercises, setExercises] = useState<Exercicio[]>([])
-  const [profile, setProfile] = useState<HomeProfileRecord>({ id: 'local', name: 'Atleta', heightCm: null })
+  const [profile, setProfile] = useState<HomeProfileRecord>({ id: 'local', name: 'Atleta', heightCm: null, weightKg: null, birthDate: null, country: null })
   const [latestWeight, setLatestWeight] = useState<{ date: string; weightKg: number } | undefined>()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
+  const [modalParabens, setModalParabens] = useState(false)
   const [pickerRoutineIds, setPickerRoutineIds] = useState<string[]>([])
   const [profileOpen, setProfileOpen] = useState(false)
   const [logoutOpen, setLogoutOpen] = useState(false)
   const [draftName, setDraftName] = useState('')
   const [draftAvatar, setDraftAvatar] = useState<Blob | undefined>()
-  const [weightInput, setWeightInput] = useState('')
   const [heightInput, setHeightInput] = useState('')
-  const [savingWeight, setSavingWeight] = useState(false)
+  const [draftWeight, setDraftWeight] = useState('')
+  const [draftBirthDate, setDraftBirthDate] = useState('')
+  const [draftCountry, setDraftCountry] = useState<HomeProfileRecord['country']>(null)
+  const [idade, setIdade] = useState<number | null>(null)
   const [savingProfile, setSavingProfile] = useState(false)
   const [savingSchedule, setSavingSchedule] = useState(false)
   const [avatarUrl, setAvatarUrl] = useState<string>()
@@ -115,8 +270,8 @@ export default function Home({ onOpenPlans }: Props) {
   const selectedRoutines = selectedDay.routineIds
     .map((id) => routinesById.get(id))
     .filter((routine): routine is PlanRoutine => Boolean(routine))
-  const heightM = profile.heightCm ? profile.heightCm / 100 : 0
-  const bmi = heightM && latestWeight ? latestWeight.weightKg / (heightM * heightM) : undefined
+  const previewHeightM = (heightInput ? Number(heightInput.replace(',', '.')) : profile.heightCm ?? 0) / 100
+  const previewBmi = previewHeightM && latestWeight ? latestWeight.weightKg / (previewHeightM * previewHeightM) : undefined
   const weeklyProgress = useMemo(() => {
     let planned = 0
     let completed = 0
@@ -161,7 +316,8 @@ export default function Home({ onOpenPlans }: Props) {
         setDraftName(loadedProfile.name)
         setHeightInput(loadedProfile.heightCm ? String(loadedProfile.heightCm) : '')
         setLatestWeight(loadedWeight)
-        setWeightInput(loadedWeight ? String(loadedWeight.weightKg).replace('.', ',') : '')
+        setDraftWeight(loadedProfile.weightKg ? String(loadedProfile.weightKg).replace('.', ',') : '')
+        setDraftBirthDate(loadedProfile.birthDate ?? '')
         setDays(Object.fromEntries(loadedDays.map((day) => [day.date, day])))
       })
       .catch((cause: unknown) => {
@@ -185,6 +341,10 @@ export default function Home({ onOpenPlans }: Props) {
     return () => URL.revokeObjectURL(url)
   }, [profile.avatar, profile.avatarType])
 
+  useEffect(() => {
+    setIdade(draftBirthDate ? calcularIdade(draftBirthDate) : null)
+  }, [draftBirthDate])
+
   const selecionarSemana = (weeks: number) => {
     const nextStart = new Date(weekStart)
     nextStart.setDate(nextStart.getDate() + weeks * 7)
@@ -200,7 +360,11 @@ export default function Home({ onOpenPlans }: Props) {
 
   const abrirPerfil = () => {
     setDraftName(profile.name)
+    setDraftWeight(profile.weightKg ? String(profile.weightKg).replace('.', ',') : '')
     setDraftAvatar(undefined)
+    setDraftBirthDate(profile.birthDate ?? '')
+    setDraftCountry(profile.country ?? null)
+    setIdade(profile.birthDate ? calcularIdade(profile.birthDate) : null)
     setError(null)
     setProfileOpen(true)
   }
@@ -232,6 +396,23 @@ export default function Home({ onOpenPlans }: Props) {
     setDays((current) => ({ ...current, [selectedDate]: updated }))
     try {
       await setHomeExerciseCompletion(selectedDate, key, done)
+      if (done) {
+        const rotinasDoDia = updated.routineIds
+          .map((id) => routinesById.get(id))
+          .filter((rotina): rotina is PlanRoutine => Boolean(rotina))
+        const treinoCompleto =
+          rotinasDoDia.length > 0 &&
+          rotinasDoDia.every((rotina) => {
+            const lista = rotina.exercises
+              .map((item) => exerciseById.get(item.exerciseId))
+              .filter((exercicio): exercicio is Exercicio => Boolean(exercicio))
+            return (
+              lista.length > 0 &&
+              lista.every((exercicio) => updated.completed[`${rotina.id}::${exercicio.id}`])
+            )
+          })
+        if (treinoCompleto) setModalParabens(true)
+      }
       setError(null)
     } catch (cause) {
       setDays((current) => ({ ...current, [selectedDate]: selectedDay }))
@@ -242,13 +423,31 @@ export default function Home({ onOpenPlans }: Props) {
   const salvarPerfil = async () => {
     const name = draftName.trim()
     if (!name) {
-      setError('Informe o nome do perfil.')
+      setError(traduzir(draftCountry, 'erroNome'))
+      return
+    }
+    const weightKg = draftWeight ? Number(draftWeight.replace(',', '.')) : null
+    const heightCm = heightInput ? Number(heightInput.replace(',', '.')) : null
+    if (weightKg !== null && (!Number.isFinite(weightKg) || weightKg < 20 || weightKg > 500)) {
+      setError(traduzir(draftCountry, 'erroPeso'))
+      return
+    }
+    if (heightCm !== null && (!Number.isFinite(heightCm) || heightCm < 80 || heightCm > 250)) {
+      setError(traduzir(draftCountry, 'erroAltura'))
+      return
+    }
+    if (draftBirthDate && new Date(draftBirthDate) > new Date()) {
+      setError(traduzir(draftCountry, 'erroData'))
       return
     }
     setSavingProfile(true)
     const updated: HomeProfileRecord = {
       ...profile,
       name,
+      heightCm,
+      weightKg,
+      birthDate: draftBirthDate || null,
+      country: draftCountry,
     }
     if (draftAvatar) {
       updated.avatar = draftAvatar
@@ -259,38 +458,14 @@ export default function Home({ onOpenPlans }: Props) {
       setProfile(updated)
       setProfileOpen(false)
       setError(null)
+      if (weightKg !== null && weightKg !== profile.weightKg) {
+        await saveBodyWeight(updated, { date: today, weightKg })
+        setLatestWeight({ date: today, weightKg })
+      }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Não foi possível salvar o perfil.')
     } finally {
       setSavingProfile(false)
-    }
-  }
-
-  const salvarMedicao = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    const weightKg = Number(weightInput.replace(',', '.'))
-    const heightCm = Number(heightInput.replace(',', '.'))
-    if (!Number.isFinite(weightKg) || weightKg < 20 || weightKg > 500) {
-      setError('Informe um peso entre 20 e 500 kg.')
-      return
-    }
-    if (!Number.isFinite(heightCm) || heightCm < 80 || heightCm > 250) {
-      setError('Informe uma altura entre 80 e 250 cm.')
-      return
-    }
-    setSavingWeight(true)
-    const updatedProfile = { ...profile, heightCm }
-    const measurement = { date: today, weightKg }
-    try {
-      await saveBodyWeight(updatedProfile, measurement)
-      setProfile(updatedProfile)
-      setHeightInput(String(heightCm))
-      setLatestWeight(measurement)
-      setError(null)
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Não foi possível salvar as medidas.')
-    } finally {
-      setSavingWeight(false)
     }
   }
 
@@ -415,10 +590,13 @@ export default function Home({ onOpenPlans }: Props) {
                         const done = Boolean(selectedDay.completed[key])
                         return (
                           <li className={done ? 'concluido' : ''} key={key}>
-                            <span className="home-exercise-copy">
+                            <button
+                              className="home-exercise-copy"
+                              onClick={() => onOpenDetails(exercise)}
+                            >
                               <strong>{exercise.nome}</strong>
                               <small>{item.sets} séries × {formatReps(item)} reps</small>
-                            </span>
+                            </button>
                             <button
                               className={`home-exercise-check${done ? ' feito' : ''}`}
                               aria-label={`${done ? 'Marcar como não feito' : 'Marcar como feito'}: ${exercise.nome}`}
@@ -449,31 +627,6 @@ export default function Home({ onOpenPlans }: Props) {
             <button className="home-primary-button" onClick={abrirSeletor}>＋ Incluir rotina</button>
           </div>
         )}
-      </section>
-
-      <section className="home-weight-card" aria-labelledby="home-weight-title">
-        <header className="home-weight-heading">
-          <span className="home-weight-icon"><IconePeso /></span>
-          <div>
-            <h2 id="home-weight-title">Peso corporal</h2>
-            <small>{latestWeight ? `Último registro · ${formatarData(latestWeight.date, { day: 'numeric', month: 'short' })}` : 'Registre seu peso e altura'}</small>
-          </div>
-        </header>
-        <div className="home-weight-summary">
-          <strong>{latestWeight ? latestWeight.weightKg.toLocaleString('pt-BR', { maximumFractionDigits: 1 }) : '—'} <small>kg</small></strong>
-          <span>{bmi ? <>IMC <b>{bmi.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</b></> : 'IMC aparecerá após informar altura e peso'}</span>
-        </div>
-        <form className="home-measure-form" onSubmit={(event) => void salvarMedicao(event)}>
-          <label>
-            <span>Peso (kg)</span>
-            <input inputMode="decimal" type="text" placeholder="Ex.: 75,5" value={weightInput} onChange={(event) => setWeightInput(event.target.value)} />
-          </label>
-          <label>
-            <span>Altura (cm)</span>
-            <input inputMode="decimal" type="text" placeholder="Ex.: 175" value={heightInput} onChange={(event) => setHeightInput(event.target.value)} />
-          </label>
-          <button className="home-primary-button" type="submit" disabled={savingWeight}>{savingWeight ? 'Salvando...' : 'Registrar'}</button>
-        </form>
       </section>
 
       {error && <p className="home-error" role="alert">{error}</p>}
@@ -515,15 +668,53 @@ export default function Home({ onOpenPlans }: Props) {
 
       {profileOpen && (
         <div className="home-dialog-backdrop" onClick={(event) => event.target === event.currentTarget && setProfileOpen(false)}>
-          <section className="home-dialog" role="dialog" aria-modal="true" aria-labelledby="home-profile-title">
-            <header><h2 id="home-profile-title">Seu perfil</h2><button aria-label="Fechar" onClick={() => setProfileOpen(false)}>×</button></header>
-            <label className="home-form-field"><span>Nome</span><input value={draftName} maxLength={60} onChange={(event) => setDraftName(event.target.value)} placeholder="Seu nome" /></label>
-            <label className="home-form-field"><span>Foto de perfil</span><input type="file" accept="image/*" onChange={(event) => escolherFoto(event.target.files?.[0])} /></label>
+          <section className="home-dialog home-dialog-profile" role="dialog" aria-modal="true" aria-labelledby="home-profile-title">
+            <header><h2 id="home-profile-title">{traduzir(draftCountry, 'perfil')}</h2><button aria-label="Fechar" onClick={() => setProfileOpen(false)}>×</button></header>
+            <div className="home-profile">
+              <div className="home-profile-photo">
+                <div className="home-profile-avatar">
+                  {avatarUrl ? <img src={avatarUrl} alt="" /> : <span>{profile.name.trim().charAt(0).toLocaleUpperCase('pt-BR') || 'A'}</span>}
+                </div>
+                <div className="home-profile-photo-copy">
+                  <strong>{traduzir(draftCountry, 'foto')}</strong>
+                  <p>{traduzir(draftCountry, 'fotoAjuda')}</p>
+                  <label className="home-profile-upload">
+                    <span>{traduzir(draftCountry, 'selecionarFoto')}</span>
+                    <input type="file" accept="image/*" onChange={(event) => escolherFoto(event.target.files?.[0])} />
+                  </label>
+                  {draftAvatar && <p className="home-dialog-hint" role="status">{traduzir(draftCountry, 'fotoSelecionada')}</p>}
+                </div>
+              </div>
+              <div className="home-profile-fields">
+                <label className="home-form-field"><span>{traduzir(draftCountry, 'nome')}</span><input value={draftName} maxLength={60} onChange={(event) => setDraftName(event.target.value)} placeholder="Seu nome" /></label>
+                <div className="home-form-row">
+                  <label className="home-form-field"><span>{traduzir(draftCountry, 'nascimento')}</span><input type="date" value={draftBirthDate} onChange={(event) => setDraftBirthDate(event.target.value)} /></label>
+                  {idade !== null && (
+                    <div className="home-profile-kpi">
+                      <span className="home-profile-kpi-label">{traduzir(draftCountry, 'idade')}</span>
+                      <strong className="home-profile-kpi-valor">{idade} {idade === 1 ? 'ano' : 'anos'}</strong>
+                    </div>
+                  )}
+                </div>
+                <div className="home-form-row">
+                  <label className="home-form-field home-form-field-country"><span>{traduzir(draftCountry, 'pais')}</span><select value={draftCountry ?? ''} onChange={(event) => setDraftCountry(event.target.value || null)}><option value="">{traduzir(draftCountry, 'pais')}</option>{PAISES.map((pais) => <option key={pais.chave} value={pais.chave}>{pais.label}</option>)}</select></label>
+                </div>
+                <div className="home-form-row">
+                  <label className="home-form-field"><span>{traduzir(draftCountry, 'peso')}</span><input inputMode="decimal" type="text" placeholder="Ex.: 75,5" value={draftWeight} onChange={(event) => setDraftWeight(event.target.value)} /></label>
+                  <label className="home-form-field"><span>{traduzir(draftCountry, 'altura')}</span><input inputMode="decimal" type="text" placeholder="Ex.: 175" value={heightInput} onChange={(event) => setHeightInput(event.target.value)} /></label>
+                </div>
+                {previewBmi !== undefined && (
+                  <div className="home-profile-kpi">
+                    <span className="home-profile-kpi-label">IMC</span>
+                    <strong className="home-profile-kpi-valor">{previewBmi.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</strong>
+                  </div>
+                )}
+              </div>
+            </div>
             {error && <p className="home-dialog-error" role="alert">{error}</p>}
-            {draftAvatar && <p className="home-dialog-hint">Nova foto selecionada; ela será salva ao confirmar.</p>}
             <footer>
-              <button className="home-secondary-button" onClick={() => setProfileOpen(false)}>Cancelar</button>
-              <button className="home-primary-button" disabled={savingProfile} onClick={() => void salvarPerfil()}>{savingProfile ? 'Salvando...' : 'Salvar perfil'}</button>
+              <button className="home-secondary-button" onClick={() => setProfileOpen(false)}>{traduzir(draftCountry, 'cancelar')}</button>
+              <button className="home-primary-button" disabled={savingProfile} onClick={() => void salvarPerfil()}>{savingProfile ? 'Salvando...' : traduzir(draftCountry, 'salvar')}</button>
             </footer>
           </section>
         </div>
@@ -535,6 +726,21 @@ export default function Home({ onOpenPlans }: Props) {
             <header><h2 id="home-logout-title">Perfil local</h2><button aria-label="Fechar" onClick={() => setLogoutOpen(false)}>×</button></header>
             <p>Este app ainda não usa contas ou autenticação. Seu perfil, treinos e medidas ficam salvos neste dispositivo; não há uma sessão de conta para encerrar.</p>
             <footer><button className="home-primary-button" onClick={() => setLogoutOpen(false)}>Entendi</button></footer>
+          </section>
+        </div>
+      )}
+
+      {modalParabens && (
+        <div className="home-dialog-backdrop">
+          <section className="home-dialog" role="dialog" aria-modal="true" aria-labelledby="home-parabens-title">
+            <header>
+              <h2 id="home-parabens-title">Treino concluído</h2>
+              <button aria-label="Fechar" onClick={() => setModalParabens(false)}>×</button>
+            </header>
+            <p className="home-parabens-texto">Parabéns! Treino do dia concluído. 🎉</p>
+            <footer>
+              <button className="home-primary-button" onClick={() => setModalParabens(false)}>Fechar</button>
+            </footer>
           </section>
         </div>
       )}

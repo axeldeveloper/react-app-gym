@@ -17,6 +17,7 @@ import { PARTES_CORPORAIS, type Exercicio } from './data/treinos'
 
 type Props = {
   className?: string
+  onOpenDetails: (exercise: Exercicio) => void
 }
 
 function normalizar(texto: string) {
@@ -70,7 +71,7 @@ function atualizarRotina(
   return update(rotina)
 }
 
-export default function Plano({ className = '' }: Props) {
+export default function Plano({ className = '', onOpenDetails }: Props) {
   const [rotinas, setRotinas] = useState<PlanRoutine[]>([])
   const [exercicios, setExercicios] = useState<Exercicio[]>([])
   const [carregando, setCarregando] = useState(true)
@@ -455,7 +456,12 @@ export default function Plano({ className = '' }: Props) {
                     )}
                   </span>
                   <span className="plan-exercise-copy">
-                    <strong>{exercicio.nome}</strong>
+                    <button
+                      className="plan-exercise-name"
+                      onClick={() => onOpenDetails(exercicio)}
+                    >
+                      <strong>{exercicio.nome}</strong>
+                    </button>
                     <small>{exercicio.equipamento}</small>
                     <span className="plan-prescription">
                       <label>
@@ -631,31 +637,38 @@ export default function Plano({ className = '' }: Props) {
                   .map((exercicio) => {
                     const adicionando = adicionandoId === exercicio.id
                     return (
-                      <button
-                        key={exercicio.id}
-                        className="plan-picker-exercise"
-                        aria-label={`Adicionar ${exercicio.nome} à rotina`}
-                        disabled={adicionandoId !== null}
-                        onClick={() => void adicionarExercicio(exercicio.id)}
-                      >
-                        <span className="plan-thumbnail">
-                          {(urlsMidia.get(exercicio.id) ?? exercicio.imagem) ? (
-                            <img
-                              src={urlsMidia.get(exercicio.id) ?? exercicio.imagem}
-                              alt=""
-                              loading="lazy"
-                              decoding="async"
-                            />
-                          ) : (
-                            <IconePeso />
-                          )}
-                        </span>
-                        <span className="plan-exercise-copy">
-                          <strong>{exercicio.nome}</strong>
-                          <small>{exercicio.alvo} · {exercicio.equipamento}</small>
-                        </span>
-                        <span className="plan-picker-plus" aria-hidden="true">{adicionando ? '…' : '+'}</span>
-                      </button>
+                      <div className="plan-picker-item" key={exercicio.id}>
+                        <button
+                          className="plan-picker-exercise"
+                          aria-label={`Detalhes de ${exercicio.nome}`}
+                          onClick={() => onOpenDetails(exercicio)}
+                        >
+                          <span className="plan-thumbnail">
+                            {(urlsMidia.get(exercicio.id) ?? exercicio.imagem) ? (
+                              <img
+                                src={urlsMidia.get(exercicio.id) ?? exercicio.imagem}
+                                alt=""
+                                loading="lazy"
+                                decoding="async"
+                              />
+                            ) : (
+                              <IconePeso />
+                            )}
+                          </span>
+                          <span className="plan-exercise-copy">
+                            <strong>{exercicio.nome}</strong>
+                            <small>{exercicio.alvo} · {exercicio.equipamento}</small>
+                          </span>
+                        </button>
+                        <button
+                          className="plan-picker-add"
+                          aria-label={`Adicionar ${exercicio.nome} à rotina`}
+                          disabled={adicionandoId !== null}
+                          onClick={() => void adicionarExercicio(exercicio.id)}
+                        >
+                          <span className="plan-picker-plus" aria-hidden="true">{adicionando ? '…' : '+'}</span>
+                        </button>
+                      </div>
                     )
                   })}
                 {exerciciosAdicionaveis.length === 0 && (

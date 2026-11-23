@@ -8,6 +8,9 @@ export async function readHomeProfile(): Promise<HomeProfileRecord> {
       id: PROFILE_ID,
       name: 'Atleta',
       heightCm: null,
+      weightKg: null,
+      birthDate: null,
+      country: null,
     }
   )
 }
@@ -21,6 +24,10 @@ export async function readHomeDays(startDate: string, endDate: string) {
     .where('date')
     .between(startDate, endDate, true, true)
     .toArray()
+}
+
+export async function readAllHomeDays() {
+  return catalogueDb.homeDays.orderBy('date').toArray()
 }
 
 export async function readHomeDay(date: string): Promise<HomeDayRecord> {
@@ -53,6 +60,10 @@ export function setHomeExerciseCompletion(
 
 export async function readLatestBodyWeight() {
   return catalogueDb.bodyWeights.orderBy('date').last()
+}
+
+export async function readBodyWeightHistory() {
+  return catalogueDb.bodyWeights.orderBy('date').toArray()
 }
 
 export function saveBodyWeight(

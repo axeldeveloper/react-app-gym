@@ -13,6 +13,9 @@ export type HomeProfileRecord = {
   id: 'local'
   name: string
   heightCm: number | null
+  weightKg: number | null
+  birthDate: string | null
+  country: string | null
   avatar?: Blob
   avatarType?: string
 }

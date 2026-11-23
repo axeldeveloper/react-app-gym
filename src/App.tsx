@@ -1,6 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
-import { initializeCatalogue, readExercisesByBodyPart } from './data/catalogueDb'
+import {
+  initializeCatalogue,
+  readExercisesByBodyPart,
+  readAllExercises,
+  type HomeDayRecord,
+  type WeightMeasurement,
+} from './data/catalogueDb'
+import { initializePlanRoutines, type PlanRoutine } from './data/planDb'
+import { readAllHomeDays, readBodyWeightHistory, readHomeProfile } from './data/homeDb'
 import type { Exercicio, Grupo } from './data/treinos'
+import Estatisticas from './Estatisticas'
 import Detalhes from './Detalhes'
 import Exercicios from './Exercicios'
 import Home from './Home'
@@ -87,6 +96,19 @@ function normalizar(texto: string) {
     .trim()
 }
 
+function dataISO(date: Date) {
+  const ano = date.getFullYear()
+  const mes = String(date.getMonth() + 1).padStart(2, '0')
+  const dia = String(date.getDate()).padStart(2, '0')
+  return `${ano}-${mes}-${dia}`
+}
+
+function inicioDaSemana(date: Date) {
+  const inicio = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+  inicio.setDate(inicio.getDate() - ((inicio.getDay() + 6) % 7))
+  return inicio
+}
+
 export default function App() {
   const [state, dispatch] = useTreinoStore()
   const [grupos, setGrupos] = useState<Grupo[]>([])
@@ -98,6 +120,10 @@ export default function App() {
   const [erroExercicios, setErroExercicios] = useState<string | null>(null)
   const [tentativaExercicios, setTentativaExercicios] = useState(0)
   const [aba, setAba] = useState('')
+  const [routines, setRoutines] = useState<PlanRoutine[]>([])
+  const [statsExercises, setStatsExercises] = useState<Exercicio[]>([])
+  const [homeDays, setHomeDays] = useState<Record<string, HomeDayRecord>>({})
+  const [bodyWeights, setBodyWeights] = useState<WeightMeasurement[]>([])
   const [menuAtivo, setMenuAtivo] = useState(() => {
     const pagina = new URLSearchParams(window.location.search).get('pagina')
     return pagina && PAGINAS.has(pagina) ? pagina : 'inicio'
@@ -167,6 +193,33 @@ export default function App() {
     }
   }, [grupo?.parteCorporal, tentativaExercicios])
 
+  useEffect(() => {
+    let ativo = true
+    Promise.all([
+      initializePlanRoutines(),
+      readAllExercises(),
+      readHomeProfile(),
+      readBodyWeightHistory(),
+      readAllHomeDays(),
+    ])
+      .then(([rotinas, exerciciosCompletos, , pesos, dias]) => {
+        if (!ativo) return
+        setRoutines(rotinas)
+        setStatsExercises(exerciciosCompletos)
+        setBodyWeights(pesos)
+        setHomeDays(Object.fromEntries(dias.map((dia) => [dia.date, dia])))
+      })
+      .catch(() => {
+        if (ativo) {
+          setRoutines([])
+          setHomeDays({})
+        }
+      })
+    return () => {
+      ativo = false
+    }
+  }, [])
+
   const algumRodando = !!state.main.since || Object.values(state.clocks).some((c) => c.since)
   const now = useNow(algumRodando)
 
@@ -208,7 +261,50 @@ export default function App() {
     [consulta, exercicios],
   )
   const visiveis = resultados.slice(0, limite)
-  const percentualFeitos = totalGeral ? Math.round((totalFeitos / totalGeral) * 100) : 0
+
+  const routinesPorId = useMemo(() => new Map(routines.map((rotina) => [rotina.id, rotina])), [routines])
+
+  const semanasComTreino = new Set<string>()
+  Object.keys(homeDays).forEach((data) => {
+    const dia = homeDays[data]
+    const temTreino = dia.routineIds.some((rid) =>
+      routinesPorId.get(rid)?.exercises.some((item) => dia.completed[`${rid}::${item.exerciseId}`])
+    )
+    if (temTreino) {
+      const inicio = inicioDaSemana(new Date(`${data}T00:00:00`))
+      semanasComTreino.add(dataISO(inicio))
+    }
+  })
+
+  // streak atual: semanas consecutivas com treino terminando na semana de hoje
+  let streak = 0
+  let dataCheck = new Date()
+  for (;;) {
+    const inicio = inicioDaSemana(dataCheck)
+    if (semanasComTreino.has(dataISO(inicio))) {
+      streak += 1
+      dataCheck = new Date(inicio.getFullYear(), inicio.getMonth(), inicio.getDate() - 1)
+    } else break
+  }
+
+  // melhor streak histórica
+  const inicioSemanas = Array.from(semanasComTreino)
+    .map((s) => new Date(`${s}T00:00:00`))
+    .sort((a, b) => a.getTime() - b.getTime())
+  let melhorStreak = 0
+  let atual = 1
+  for (let i = 1; i < inicioSemanas.length; i++) {
+    const diffDias = Math.round(
+      (inicioSemanas[i].getTime() - inicioSemanas[i - 1].getTime()) / 86400000
+    )
+    if (diffDias === 7) atual += 1
+    else {
+      if (atual > melhorStreak) melhorStreak = atual
+      atual = 1
+    }
+  }
+  if (atual > melhorStreak) melhorStreak = atual
+  if (inicioSemanas.length === 0) melhorStreak = 0
 
   const navegar = (destino: string, elemento: string) => {
     setMenuAtivo(destino)
@@ -247,93 +343,74 @@ export default function App() {
           onDetails={(exercise) => setDetalhe(exercise)}
         />
       ) : menuAtivo === 'inicio' ? (
-        <Home onOpenPlans={() => navegar('plano', 'plano')} />
+        <Home
+          onOpenPlans={() => navegar('plano', 'plano')}
+          onOpenDetails={(exercise) => setDetalhe(exercise)}
+        />
       ) : menuAtivo === 'plano' ? (
-        <Plano />
+        <Plano onOpenDetails={(exercise) => setDetalhe(exercise)} />
       ) : (
       <>
-      <header className="topo" id="inicio">
-        <nav className="anilhas" aria-label="Grupos de treino">
-          {grupos.map((item) => {
-            const n = contagem[item.chave] ?? 0
-            const frac = n / item.total
-            const ativa = item.chave === grupo.chave
-            return (
-              <button
-                key={item.chave}
-                className={ativa ? 'anilha ativa' : 'anilha'}
-                data-g={item.chave}
-                aria-current={ativa ? 'true' : undefined}
-                aria-label={`${item.titulo}, ${n} de ${item.total} feitos`}
-                onClick={() => {
-                  setAba(item.chave)
-                  setBusca('')
-                  setLimite(50)
-                  window.scrollTo({ top: 0 })
-                }}
-              >
-                <span className="disco">
-                  <svg viewBox="0 0 52 52" aria-hidden="true">
-                    <circle className="trilho" cx="26" cy="26" r={R} />
-                    <circle
-                      className="avanco"
-                      cx="26"
-                      cy="26"
-                      r={R}
-                      strokeDasharray={CIRC}
-                      strokeDashoffset={CIRC * (1 - frac)}
-                    />
-                  </svg>
-                  <b className="num">{item.sigla}</b>
-                </span>
-                <span className="anilha-titulo">{item.titulo}</span>
-                <span className="cont num">
-                  {n}/{item.total}
-                </span>
-              </button>
-            )
-          })}
-        </nav>
-      </header>
+      {menuAtivo !== 'estatisticas' ? (
+        <header className="topo" id="inicio">
+          <nav className="anilhas" aria-label="Grupos de treino">
+            {grupos.map((item) => {
+              const n = contagem[item.chave] ?? 0
+              const frac = n / item.total
+              const ativa = item.chave === grupo.chave
+              return (
+                <button
+                  key={item.chave}
+                  className={ativa ? 'anilha ativa' : 'anilha'}
+                  data-g={item.chave}
+                  aria-current={ativa ? 'true' : undefined}
+                  aria-label={`${item.titulo}, ${n} de ${item.total} feitos`}
+                  onClick={() => {
+                    setAba(item.chave)
+                    setBusca('')
+                    setLimite(50)
+                    window.scrollTo({ top: 0 })
+                  }}
+                >
+                  <span className="disco">
+                    <svg viewBox="0 0 52 52" aria-hidden="true">
+                      <circle className="trilho" cx="26" cy="26" r={R} />
+                      <circle
+                        className="avanco"
+                        cx="26"
+                        cy="26"
+                        r={R}
+                        strokeDasharray={CIRC}
+                        strokeDashoffset={CIRC * (1 - frac)}
+                      />
+                    </svg>
+                    <b className="num">{item.sigla}</b>
+                  </span>
+                  <span className="anilha-titulo">{item.titulo}</span>
+                  <span className="cont num">
+                    {n}/{item.total}
+                  </span>
+                </button>
+              )
+            })}
+          </nav>
+        </header>
+      ) : null}
 
-      <main data-g={grupo.chave}>
+      <main
+        className={menuAtivo === 'estatisticas' ? 'estatisticas-main' : undefined}
+        data-g={grupo.chave}
+      >
         {menuAtivo === 'estatisticas' ? (
-          <section className="estatisticas ancora-menu" id="estatisticas" aria-labelledby="estatisticas-titulo">
-            <div className="estatisticas-topo">
-              <div>
-                <h2 id="estatisticas-titulo">Estatísticas</h2>
-                <p>{totalFeitos} de {totalGeral} exercícios concluídos</p>
-              </div>
-              <strong className="num">{percentualFeitos}%</strong>
-            </div>
-            <div
-              className="estatisticas-barra"
-              role="progressbar"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={percentualFeitos}
-              aria-label="Progresso geral dos exercícios"
-            >
-              <span style={{ width: `${percentualFeitos}%` }} />
-            </div>
-            <ul className="estatisticas-grupos">
-              {grupos.map((item) => {
-                const concluidos = contagem[item.chave] ?? 0
-                const percentual = item.total ? Math.round((concluidos / item.total) * 100) : 0
-                return (
-                  <li key={item.chave}>
-                    <span>{item.titulo}</span>
-                    <span className="estatisticas-grupo-valor">
-                      {concluidos}/{item.total}
-                    </span>
-                    <span className="estatisticas-mini-barra">
-                      <span style={{ width: `${percentual}%` }} />
-                    </span>
-                  </li>
-                )
-              })}
-            </ul>
-          </section>
+          <Estatisticas
+            days={Object.values(homeDays)}
+            routines={routines}
+            exercises={statsExercises}
+            bodyWeights={bodyWeights}
+            currentStreak={streak}
+            bestStreak={melhorStreak}
+            points={totalFeitos}
+          />
         ) : (
         <>
         <div className="grupo-head ancora-menu" id="plano">
